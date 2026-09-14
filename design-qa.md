@@ -33,3 +33,7 @@ Incremental browser checks passed: create/save label; save SLA deadlines; genera
 No live emails were sent, no original production records changed, and no production credentials were entered. Whole-app visual parity, original completed-report/signature workflows and the remaining source-state gaps remain open.
 
 Additional workflow verification: offline photo captured while local server was stopped, inspection completed, cached app reloaded and Blob photo restored, server restarted, sync uploaded the photo to an authenticated /api/files URL and removed the pending banner. Hierarchical trash and restoration preserve previously archived inspection evidence in API tests.
+
+## Dritter Durchgang
+
+Gesamtstatus weiterhin blocked / incomplete für vollständige 1:1-Abnahme. Zusätzliche Originalzustände: alle sechs Anlagekategorien, BST/BSK-Untertypen, Türart, Grundriss-Upload Name/Ebene, Inline-Prüfungsstammdaten einschließlich Ja/Nein. Browserprüfungen: Gerät mit Typ/Rauchschutz/Türart/UUID gespeichert; Prüfung mit veränderten Stammdaten abgeschlossen; Inline-Editor mobil 390×844 geprüft; mehrseitiger PDF-Plan hochgeladen, Seite 2 markiert, neu geladen und Position erhalten. Native PDFs auf 120 Prüfpunkte, Unicode, Seitenzahlen und fehlende Anhänge geprüft. PDF-Blob-Vorschau im IAB durch Browser-Sicherheitsprüfung blockiert; keine Umgehung versucht. 32 automatisierte Tests bestanden.

@@ -136,4 +136,7 @@ Verteilerkästen zugänglich und gekennzeichnet.
 Keine Lagerung in oder vor Verteilerkästen.`),
  CPR:[]
 };
-export const assetFields={FLS:['Baujahr','Seriennummer','Löschmittelart','Füllmenge','Brandklassen'],BST:['Hersteller','Modell','Baujahr','Zulassungs-Nr.','Feuerwiderstandsklasse','Türart (1-/2-flügelig)','Feststellanlage'],BSK:['Hersteller','Modell','Baujahr','Seriennummer'],RWM:['Hersteller','Modell','Baujahr','Seriennummer'],BSB:[],CPR:['Hersteller','Modell','Seriennummer']};
+export const assetFields={FLS:['Baujahr','Seriennummer','Löschmittelart','Füllmenge','Brandklassen'],BST:['Hersteller','Modell','Baujahr','Zulassungs-Nr.','Feuerwiderstandsklasse','Rauchschutz','Türart (1-/2-flügelig)','Feststellanlage'],BSK:['Hersteller','Modell','Baujahr','BSK-Nr.','Zulassungs-Nr.','Nennweite DN','Feuerwiderstandsklasse','Einbaulage','Antriebsart','Auslösevorrichtung'],RWM:['Hersteller','Modell','Herstellungsdatum','Montageort','Seriennummer','Batterietyp'],BSB:[],CPR:['Hersteller','Modell','Seriennummer']};
+
+export const fsaFields=['FSA-Hersteller','FSA-Modell','Rauchmelder-Typ','FSA-Systemtyp (DIN 14677-1)','Zulassung beinhaltet DIN 14677'];
+export const assetTypes={BST:['Brandschutztür','Brandschutztor'],BSK:['Brandschutzklappe','Brandschutztellerventil']};

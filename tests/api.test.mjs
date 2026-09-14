@@ -49,6 +49,10 @@ test('external invitations isolate records, attachments and management access',a
  assert.equal((await call('/audit','GET',null,c)).status,403);
  assert.equal((await call('/users','GET',null,c)).body.users.length,1);
  const file=DB.sql.prepare('SELECT id FROM files LIMIT 1').get();assert.equal((await call('/files/'+file.id,'GET',null,c)).status,403);
+ const ownAsset=records.find(r=>r.id==='a1');
+ assert.equal((await call('/records/assets','PUT',{...ownAsset,notes:file.id},c)).status,200);
+ assert.equal((await call('/files/'+file.id,'GET',null,c)).status,403,'A file ID in a note must not grant file access');
+ assert.equal((await call('/records/plans','PUT',{id:'forged-plan',name:'Forged',level:0,buildingId:'b1',file:{id:file.id,url:'/api/files/'+file.id},pins:[]},c)).status,403);
  assert.equal((await call('/contractors/'+accepted.body.user.id,'DELETE')).status,200);
  assert.equal((await call('/records','GET',null,c)).status,401);
  assert.equal((await call('/auth/login','POST',{email:'external@example.test',password:'external-test-password'})).status,403);
@@ -90,4 +94,24 @@ test('trash cascades and restores a hierarchy while preserving archived evidence
  assert.equal((await call('/records/inspections','PUT',{...inspection,id:'deleted-parent-test'})).status,400);
  r=await call('/trash/o1','POST',{restore:true});assert.equal(r.status,200);
  const restored=(await call('/records')).body.records;assert.equal(restored.find(r=>r.id==='a1').archived,false);assert.equal(restored.find(r=>r.id==='i1').archived,true);assert.equal(restored.find(r=>r.id==='i1').trashId,undefined);
+});
+
+test('inspection metadata overrides are validated and frozen without changing the device',async()=>{
+ const original=(await call('/records')).body.records.find(r=>r.id==='a1');
+ const draft={...inspection,id:'metadata-inspection',_requestId:'metadata-inspection',specsOverrides:{Hersteller:'Bei Prüfung abgelesen',Rauchschutz:'Ja','FSA-Hersteller':'FSA Test'}};
+ const r=await call('/records/inspections','PUT',draft);
+ assert.equal(r.status,200,JSON.stringify(r.body));
+ assert.equal(r.body.record.assetSnapshot.specs.Hersteller,'Bei Prüfung abgelesen');
+ assert.equal(r.body.record.assetSnapshot.specs.Rauchschutz,'Ja');
+ assert.deepEqual((await call('/records')).body.records.find(r=>r.id==='a1').specs,original.specs);
+ assert.equal((await call('/records/inspections','PUT',{...r.body.record,specsOverrides:{Hersteller:'Geändert'}})).status,403);
+ assert.equal((await call('/records/inspections','PUT',{...draft,id:'invalid-metadata',_requestId:'invalid-metadata',specsOverrides:{Hersteller:{code:'injected'}}})).status,400);
+});
+
+test('floor plans validate page coordinates and device membership',async()=>{
+ const file=DB.sql.prepare('SELECT * FROM files LIMIT 1').get();
+ const plan={id:'plan-test',name:'Testplan',level:1,buildingId:'b1',file:{id:file.id},pins:[{assetId:'a1',page:2,x:.25,y:.75}]};
+ const r=await call('/records/plans','PUT',plan);assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.record.file.url,'/api/files/'+file.id);
+ for(const pin of [{assetId:'a1',page:0,x:.2,y:.3},{assetId:'a1',page:1,x:2,y:.3},{assetId:'private-asset',page:1,x:.2,y:.3}])assert.equal((await call('/records/plans','PUT',{...r.body.record,pins:[pin]})).status,400);
+ assert.equal((await call('/records/plans','PUT',{...r.body.record,pins:[]})).status,200);
 });

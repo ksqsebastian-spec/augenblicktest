@@ -34,3 +34,10 @@ export function mayWrite(kind,b,old,records,access,userId){
  if(kind==='reports')return Array.isArray(b.rows)&&b.rows.every(r=>has(r.assetId||r.id,'assets')||has(r.id,'inspections'));
  return false;
 }
+
+export function attachmentIds(value,result=new Set()){
+ if(!value||typeof value!=='object')return result;
+ if(typeof value.id==='string'&&value.url==='/api/files/'+value.id)result.add(value.id);
+ for(const child of Object.values(value))if(child&&typeof child==='object')attachmentIds(child,result);
+ return result;
+}

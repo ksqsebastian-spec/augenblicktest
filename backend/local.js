@@ -8,7 +8,7 @@ const root=resolve('.local');await mkdir(root,{recursive:true});await mkdir(root
 const db=database(root+'/augenblick.sqlite');db.sql.exec(await readFile('migrations/0001_initial.sql','utf8'));db.sql.exec(await readFile('migrations/0002_external_access.sql','utf8'));db.sql.exec(await readFile('migrations/0003_email.sql','utf8'));
 const setup=process.env.SETUP_TOKEN||'local-development-setup-only';
 const env={DB:db,SETUP_TOKEN:setup,FILES:{async put(id,data){await writeFile(root+'/files/'+id,Buffer.from(data));},async get(id){try{return {body:await readFile(root+'/files/'+id)};}catch{return null;}}}};
-const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.ttf':'font/ttf','.otf':'font/otf','.json':'application/json'};
+const mime={'.html':'text/html','.mjs':'text/javascript', '.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.ttf':'font/ttf','.otf':'font/otf','.json':'application/json'};
 const port=Number(process.env.PORT||8787);
 http.createServer(async (req,res)=>{
  try {

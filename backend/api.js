@@ -1,5 +1,5 @@
 import {mailReady,sendMail} from './email.js';
-import {visibleRecords,mayWrite} from './access.js';
+import {visibleRecords,mayWrite,attachmentIds} from './access.js';
 const encoder = new TextEncoder();
 const kinds = new Set(['objects','buildings','assets','inspections','tasks','contractors','plans','templates','settings','reports','labels','customProtocols','uuidCodes']);
 const adminKinds = new Set(['templates','settings','contractors','labels','customProtocols']);
@@ -54,6 +54,12 @@ async function validate(db,kind,b,u,old) {
   if(['objects','buildings','contractors','plans'].includes(kind)&&!String(b.name||'').trim())fail(400,'Name erforderlich.');
   if(kind==='buildings')await record(db,b.objectId,'objects');
   if(['assets','plans'].includes(kind))await record(db,b.buildingId,'buildings');
+  if(kind==='plans') {
+    if(!Number.isInteger(b.level??0)||Math.abs(b.level||0)>1000||!Array.isArray(b.pins)||b.pins.length>1000)fail(400,'Ungültige Ebene oder Markierungen.');
+    const f=await first(db,'SELECT * FROM files WHERE id=?',b.file?.id||'');if(!f)fail(400,'Grundriss-Datei fehlt.');
+    b.file={id:f.id,name:f.name,mime:f.mime,url:'/api/files/'+f.id};
+    const pinned=new Set();for(const pin of b.pins){if(!pin||![pin.x,pin.y].every(n=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=1)||!Number.isInteger(pin.page??1)||(pin.page??1)<1||(pin.page??1)>10000||pinned.has(pin.assetId))fail(400,'Ungültige Grundriss-Markierung.');const a=await record(db,pin.assetId,'assets');if(a.buildingId!==b.buildingId)fail(400,'Gerät gehört zu einem anderen Gebäude.');pinned.add(pin.assetId);}
+  }
   if(kind==='assets') {
     if(!categories.has(b.category)||!String(b.code||'').trim()||!String(b.location||'').trim())fail(400,'Kategorie, Code und Standort sind erforderlich.');
     const duplicate=await first(db,"SELECT id FROM records WHERE kind='assets' AND json_extract(data,'$.code')=? AND id<>?",b.code,b.id);
@@ -67,7 +73,11 @@ async function validate(db,kind,b,u,old) {
       if(u.role!=='admin')fail(403,'Nur Administratoren können Prüfungen archivieren.');
       return;
     }
-    const asset=await record(db,b.assetId,'assets');
+    const storedAsset=await record(db,b.assetId,'assets');
+    if(b.inspectionFsa!==undefined&&(typeof b.inspectionFsa!=='boolean'||storedAsset.category!=='BST'))fail(400,'Ungültige Feststellanlage.');
+    const types={BST:['Brandschutztür','Brandschutztor'],BSK:['Brandschutzklappe','Brandschutztellerventil']};
+    if(b.assetType!==undefined&&!types[storedAsset.category]?.includes(b.assetType))fail(400,'Ungültiger Gerätetyp.');
+    const asset={...storedAsset,...(b.inspectionFsa!==undefined?{fsa:b.inspectionFsa}:{}),...(b.assetType?{type:b.assetType}:{})};
     if(b.type==='monthly'&&!asset.fsa)fail(400,'Monatsprüfung setzt eine Feststellanlage voraus.');
     if(b.protocolId||asset.protocolId){const protocol=await record(db,b.protocolId||asset.protocolId,'customProtocols');const building=await record(db,asset.buildingId,'buildings');if(protocol.archived||(protocol.objectIds?.length&&!protocol.objectIds.includes(building.objectId)))fail(403,'Protokoll für dieses Objekt nicht freigegeben.');b.protocolSnapshot=protocol;}
     const company=await first(db,"SELECT data FROM records WHERE id='company' AND kind='settings'");b.companySnapshot=company?JSON.parse(company.data):null;
@@ -80,7 +90,9 @@ async function validate(db,kind,b,u,old) {
     const performed=Date.parse(b.date||'');
     if(!Number.isFinite(performed)||performed>Date.now()+300000) b.date=new Date().toISOString();
     b.recordedAt=new Date().toISOString();
-    b.inspector=u.name;b.inspectorId=u.id;b.assetSnapshot=asset;
+    const overrides=b.specsOverrides||{};
+    if(typeof overrides!=='object'||Array.isArray(overrides)||Object.keys(overrides).length>100||Object.entries(overrides).some(([k,v])=>!k.trim()||k.length>200||typeof v!=='string'||v.length>2000||['__proto__','constructor','prototype'].includes(k)))fail(400,'Ungültige Prüfungs-Stammdaten.');
+    b.inspector=u.name;b.inspectorId=u.id;b.assetSnapshot={...asset,specs:{...asset.specs,...overrides}};
     const building=await record(db,asset.buildingId,'buildings');b.buildingId=building.id;b.objectId=building.objectId;
     b.buildingSnapshot=building;b.objectSnapshot=await record(db,building.objectId,'objects');
   }
@@ -229,6 +241,7 @@ export async function api(req,env) {
       const old=existing?{...JSON.parse(existing.data),version:existing.version}:null;
       delete b.kind;delete b.created;delete b.updated;
       await validate(db,kind,b,u,old);
+      if(access){const allowed=visibleRecords(await allRecords(db),access,u.id),known=attachmentIds(allowed);for(const id of attachmentIds(b)){const f=await first(db,'SELECT author FROM files WHERE id=?',id);if(!f||f.author!==u.id&&!known.has(id))fail(403,'Datei außerhalb Ihrer Freigabe.');}}
       const now=new Date().toISOString(),version=(existing?.version||0)+1;delete b.version;
       let result;
       if(existing)result=await db.batch([stmt(db,'UPDATE records SET data=?,version=version+1,updated=? WHERE id=? AND version=?',JSON.stringify(b),now,b.id,existing.version),audit(db,u,kind+' aktualisiert',b.id)]);
@@ -249,7 +262,7 @@ export async function api(req,env) {
     }
     if(p.startsWith('/api/files/')&&m==='GET') {
       const id=p.split('/').pop(),file=await first(db,'SELECT * FROM files WHERE id=?',id);if(!file)fail(404,'Datei nicht gefunden.');
-      if(access&&file.author!==u.id){const allowed=visibleRecords(await allRecords(db),access,u.id);if(!allowed.some(r=>JSON.stringify(r).includes(id)))fail(403,'Datei außerhalb Ihrer Freigabe.');}
+      if(access&&file.author!==u.id){const allowed=visibleRecords(await allRecords(db),access,u.id);if(!attachmentIds(allowed).has(id))fail(403,'Datei außerhalb Ihrer Freigabe.');}
       const obj=await env.FILES.get(id);if(!obj)fail(404,'Datei nicht gefunden.');
       return new Response(obj.body,{headers:{'Content-Type':file.mime,'X-Content-Type-Options':'nosniff','Cache-Control':'private, no-store','Content-Disposition':`inline; filename*=UTF-8''${encodeURIComponent(file.name)}`,'Content-Security-Policy':"sandbox"}});
     }
