@@ -47,7 +47,7 @@ Generate a long random SETUP_TOKEN outside source control. Open the deployed URL
 
 The API deployment helper `node scripts/package-worker.mjs` creates an ignored, single-module bundle with compressed static assets for connector-based upload. When deploying that bundle through the API, supply DB, FILES and SETUP_TOKEN bindings, enable the workers.dev route, and configure the daily `0 3 * * *` cleanup schedule separately.
 
-GitHub CI validates tests and build; it does not deploy or contain Cloudflare credentials. D1 and R2 are provisioned, but live Worker deployment status must be confirmed separately.
+GitHub CI validates tests and build; it does not deploy or contain Cloudflare credentials. Live deployment: https://augenblick.ksqsebastian.workers.dev . D1, private R2, the setup secret and daily cleanup schedule are configured. The owner must complete first-administrator setup using the private setup link.
 
 ## Validation
 
