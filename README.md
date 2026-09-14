@@ -25,8 +25,8 @@ Use Node.js 24 or newer (the local adapter uses node:sqlite).
 
 ```sh
 npm ci
-npm test
 npm run build
+npm test
 npm start
 ```
 
