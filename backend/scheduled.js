@@ -1,3 +1,4 @@
+import {workspaceDB} from './workspaces.js';
 import {sendReminders} from './email.js';
 import {taskSla} from '../src/advanced-data.js';
 export async function maintainWorkspace(env,now=Date.now()){
@@ -9,4 +10,10 @@ export async function maintainWorkspace(env,now=Date.now()){
  }
  await sendReminders(env,now);
  await env.DB.batch([env.DB.prepare('DELETE FROM sessions WHERE expires<?').bind(now),env.DB.prepare('DELETE FROM attempts WHERE expires<?').bind(now),env.DB.prepare('DELETE FROM invites WHERE expires<?').bind(now)]);
+}
+
+export async function maintainAllWorkspaces(env,now=Date.now()){
+ const rows=(await env.DB.prepare('SELECT id FROM workspaces').all()).results;
+ for(const {id} of rows)await maintainWorkspace({...env,DB:workspaceDB(env.DB,id)},now);
+ const identity=workspaceDB(env.DB,'identity');await identity.batch([identity.prepare('DELETE FROM sessions WHERE expires<?').bind(now),identity.prepare('DELETE FROM attempts WHERE expires<?').bind(now),identity.prepare('DELETE FROM password_resets WHERE expires<?').bind(now)]);
 }

@@ -30,12 +30,13 @@ export async function createReportPdf({rows,title='Prüfprotokoll',loadAsset=loa
   if(r.protocolSnapshot){heading(r.protocolSnapshot.name);text(r.protocolSnapshot.standard||'');}
   if(r.reasons?.length)text('Art der Prüfung: '+r.reasons.join(', '));
   heading('Prüfpunkte');for(const [index,c]of(r.checks||[]).entries())text(`${index+1}. ${c.label} — ${{ok:'i.O.',fail:'n.i.O.',na:'n.z.'}[c.value]||'Nicht bewertet'}`);
-  heading('Gesamtbewertung');text(r.result,12);
+  heading('Gesamtbewertung');text(r.completion==='open'?'Offen – noch nicht eingereicht':r.result,12);if(r.nonInspectionReason){heading('Grund – nicht prüfbar');text(r.nonInspectionReason);}
   if(r.maintenanceItems?.length||r.maintenance){heading('Wartungsarbeiten');for(const item of r.maintenanceItems||[])text(item);if(r.maintenance)text(r.maintenance);}
   if(r.defects?.length){heading('Festgestellte Mängel');for(const d of r.defects)text(d.severity+': '+d.text);}
   if(r.actions?.length){heading('Maßnahmen');for(const action of r.actions)text(action);}
   if(r.notes){heading('Anmerkungen');text(r.notes);}
   if(r.photos?.length){heading('Fotodokumentation');for(const photo of r.photos){if(photo.pending)throw new Error('Bitte Offline-Fotos vor dem PDF-Export synchronisieren.');await image(photo);}}
+  if(r.signature?.strokes){heading('Unterschrift');if(y+65>bottom)newPage();doc.setDrawColor('#172333');doc.setLineWidth(.35);for(const stroke of r.signature.strokes){for(let n=1;n<stroke.length;n++)doc.line(margin+stroke[n-1][0]*150,y+stroke[n-1][1]*60,margin+stroke[n][0]*150,y+stroke[n][1]*60);}y+=62;text(r.inspector+' · '+(r.submittedAt?new Date(r.submittedAt).toLocaleString('de-DE'):'Noch nicht synchronisiert'),8);}
   text('Protokoll-ID: '+r.id,8);if(r.pending)text('Noch nicht synchronisiert',9);
  }
  if(!rows.length)text('Keine Datensätze im gewählten Zeitraum.');

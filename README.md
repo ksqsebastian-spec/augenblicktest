@@ -56,3 +56,9 @@ Automated tests exercise authorization, setup, invitations, session invalidation
 ## Parity audit
 
 See [parity-audit.md](parity-audit.md) for the detailed German feature matrix and unresolved gaps. Full feature and pixel parity is not claimed. For native Cloudflare email, use a `send_email` binding named EMAIL, a verified EMAIL_FROM address and APP_URL set to the public origin. Do not enable reminders before verifying delivery. Email builder reference: https://developers.cloudflare.com/email-service/api/send-emails/workers-api/ .
+
+## Mehrere Arbeitsbereiche
+
+Migration 0004 vor dem aktualisierten Worker anwenden. Bestehende Daten bleiben im Hauptarbeitsbereich erhalten. Die Anmeldung liegt anschließend in den `identity_`-Tabellen; neue Firmen haben eigene Tabellen mit einem validierten Workspace-Präfix. Arbeitsbereiche können unter Einstellungen erstellt, gewechselt oder per Einladungslink betreten werden. Ein Konto besitzt pro Arbeitsbereich eigene Rechte. Die API erwartet `X-Workspace`; Dateilinks können den Arbeitsbereich zusätzlich als `workspace`-Parameter enthalten. Die gemeinsame Anmeldung wird bei jedem Zugriff geprüft, auch wenn ein Workspace noch eine gespiegelte Sitzung enthält.
+
+E-Mail-Versand ist in dieser Installation auf Wunsch deaktiviert. Es wurden keine Domains oder weiteren kostenpflichtigen Leistungen gekauft. Mitglieder und externe Nutzer können weiterhin mit Einladungslinks hinzugefügt werden.

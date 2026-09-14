@@ -67,12 +67,25 @@ async function validate(db,kind,b,u,old) {
   }
   if(kind==='inspections') {
     if(old?.trashId)fail(403,'Bitte den gelöschten übergeordneten Datensatz zuerst wiederherstellen.');
-    if(old) {
+    if(old&&old.completion!=='open') {
       const o={...old},n={...b};for(const k of ['version','kind','archived']){delete o[k];delete n[k];}
       if(JSON.stringify(o)!==JSON.stringify(n))fail(403,'Abgeschlossene Prüfungen sind unveränderlich. Bitte eine neue Prüfung erstellen.');
       if(u.role!=='admin')fail(403,'Nur Administratoren können Prüfungen archivieren.');
       return;
     }
+    if(old?.completion==='open'&&old.inspectorId!==u.id&&u.role!=='admin')fail(403,'Nur der Prüfer oder ein Administrator darf diesen Entwurf abschließen.');
+    if(b.completion!==undefined&&!['open','complete'].includes(b.completion))fail(400,'Ungültiger Abschlussstatus.');
+    if(b.completion==='complete'){
+      if(b.result==='Nicht prüfbar'){
+        if(typeof b.nonInspectionReason!=='string'||!b.nonInspectionReason.trim()||b.nonInspectionReason.length>4000)fail(400,'Grund für die nicht durchführbare Prüfung erforderlich.');
+        b.signature=null;
+      }else{
+        const strokes=b.signature?.strokes;
+        if(!Array.isArray(strokes)||!strokes.length||strokes.length>300||strokes.reduce((n,s)=>n+(Array.isArray(s)?s.length:5001),0)>5000||!strokes.some(s=>s.length>1)||strokes.some(s=>!Array.isArray(s)||!s.length||s.some(p=>!Array.isArray(p)||p.length!==2||p.some(v=>typeof v!=='number'||!Number.isFinite(v)||v<0||v>1))))fail(400,'Gültige Unterschrift erforderlich.');
+        b.signature={strokes};
+      }
+      b.submittedAt=new Date().toISOString();
+    }else{delete b.submittedAt;if(b.completion==='open')b.signature=null;}
     const storedAsset=await record(db,b.assetId,'assets');
     if(b.inspectionFsa!==undefined&&(typeof b.inspectionFsa!=='boolean'||storedAsset.category!=='BST'))fail(400,'Ungültige Feststellanlage.');
     const types={BST:['Brandschutztür','Brandschutztor'],BSK:['Brandschutzklappe','Brandschutztellerventil']};
@@ -85,7 +98,7 @@ async function validate(db,kind,b,u,old) {
     if(!Array.isArray(b.checks)||b.checks.length<1||b.checks.length>200)fail(400,'Prüfpunkte erforderlich.');
     if(b.result!=='Nicht prüfbar'&&b.checks.some(c=>!c.label||!['ok','fail','na'].includes(c.value)))fail(400,'Bitte alle Prüfpunkte bewerten.');
     if(b.result==='Ohne Mängel'&&(b.checks.some(c=>c.value==='fail')||(b.defects||[]).length))fail(400,'Mängel vorhanden: Gesamtbewertung prüfen.');
-    if(b.result!=='Ohne Mängel'&&!String(b.notes||'').trim()&&!(b.defects||[]).some(d=>d.text?.trim()))fail(400,'Bitte Mangel oder Begründung dokumentieren.');
+    if(b.result!=='Ohne Mängel'&&!String(b.nonInspectionReason||'').trim()&&!String(b.notes||'').trim()&&!(b.defects||[]).some(d=>d.text?.trim()))fail(400,'Bitte Mangel oder Begründung dokumentieren.');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(b.nextDate||''))fail(400,'Nächsten Prüftermin angeben.');
     const performed=Date.parse(b.date||'');
     if(!Number.isFinite(performed)||performed>Date.now()+300000) b.date=new Date().toISOString();
@@ -122,7 +135,7 @@ async function validate(db,kind,b,u,old) {
   }
   if(kind==='templates'&&(!Array.isArray(b.checks)||!b.checks.length||b.checks.length>200||b.checks.some(c=>typeof c!=='string'||!c.trim()||c.length>1000)))fail(400,'Vorlage benötigt 1 bis 200 Prüfpunkte.');
 }
-export async function api(req,env) {
+export async function coreApi(req,env) {
   const db=env.DB,url=new URL(req.url),p=url.pathname,m=req.method;
   try {
     if(!['GET','HEAD'].includes(m)) {
@@ -243,9 +256,10 @@ export async function api(req,env) {
       await validate(db,kind,b,u,old);
       if(access){const allowed=visibleRecords(await allRecords(db),access,u.id),known=attachmentIds(allowed);for(const id of attachmentIds(b)){const f=await first(db,'SELECT author FROM files WHERE id=?',id);if(!f||f.author!==u.id&&!known.has(id))fail(403,'Datei außerhalb Ihrer Freigabe.');}}
       const now=new Date().toISOString(),version=(existing?.version||0)+1;delete b.version;
+      const action=kind==='inspections'&&b.completion==='complete'&&old?.completion!=='complete'?(b.result==='Nicht prüfbar'?'Prüfung nicht durchführbar: '+b.nonInspectionReason:'Prüfung unterschrieben: '+b.result):kind+(existing?' aktualisiert':' erstellt');
       let result;
-      if(existing)result=await db.batch([stmt(db,'UPDATE records SET data=?,version=version+1,updated=? WHERE id=? AND version=?',JSON.stringify(b),now,b.id,existing.version),audit(db,u,kind+' aktualisiert',b.id)]);
-      else result=await db.batch([stmt(db,'INSERT INTO records VALUES (?,?,?,1,?,?,?)',b.id,kind,JSON.stringify(b),now,now,u.id),audit(db,u,kind+' erstellt',b.id)]);
+      if(existing)result=await db.batch([stmt(db,'UPDATE records SET data=?,version=version+1,updated=? WHERE id=? AND version=?',JSON.stringify(b),now,b.id,existing.version),audit(db,u,action,b.id)]);
+      else result=await db.batch([stmt(db,'INSERT INTO records VALUES (?,?,?,1,?,?,?)',b.id,kind,JSON.stringify(b),now,now,u.id),audit(db,u,action,b.id)]);
       if(!result[0].meta.changes)fail(409,'Datensatz wurde zwischenzeitlich geändert.');
       if(access&&kind==='objects'&&!existing){access.objectIds=[...access.objectIds,b.id];await run(db,'UPDATE external_access SET data=? WHERE user_id=?',JSON.stringify(access),u.id);}
       return json({record:{...b,kind,version,created:existing?.created||now,updated:now}});
@@ -269,3 +283,5 @@ export async function api(req,env) {
     fail(404,'Nicht gefunden.');
   } catch(e) {if(!e.status)console.error('API failure',e.message);return json({error:e.status?e.message:'Serverfehler. Bitte erneut versuchen.'},e.status||500);}
 }
+
+export {api} from './workspaces.js';

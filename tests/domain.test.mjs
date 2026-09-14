@@ -13,3 +13,9 @@ test('offline preparation includes only the chosen building attachments and comp
  const records=[{id:'a',kind:'assets',buildingId:'b1'},{id:'p',kind:'plans',buildingId:'b1',file:file('plan')},{id:'i',kind:'inspections',assetId:'a',photos:[file('photo'),file('photo')]},{id:'other',kind:'plans',buildingId:'b2',file:file('private')},{id:'company',kind:'settings',logo:file('logo')}];
  assert.deepEqual(buildingAttachments('b1',records).map(f=>f.id).sort(),['logo','photo','plan']);
 });
+
+test('open inspection drafts do not count as a completed inspection',async()=>{
+ const {latest,status}=await import('../src/data.js');const asset={id:'draft-asset'};
+ const rows=[{kind:'inspections',assetId:asset.id,type:'annual',completion:'open',result:'Ohne Mängel',date:'2099-01-01',nextDate:'2099-12-31'}];
+ assert.equal(latest(asset.id,rows),undefined);assert.equal(status(asset,rows),'Nicht geprüft');
+});

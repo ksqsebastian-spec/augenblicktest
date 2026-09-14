@@ -24,3 +24,9 @@ test('native PDF embeds actual image bytes with a caption',async()=>{
  const task=getDocument({data:bytes,isEvalSupported:false});const pdf=await task.promise;let found=false;
  const {OPS}=await import('pdfjs-dist/legacy/build/pdf.mjs');for(let i=1;i<=pdf.numPages;i++){const page=await pdf.getPage(i),ops=await page.getOperatorList();if(ops.fnArray.includes(OPS.paintImageXObject))found=true;}assert.ok(found);await task.destroy();
 });
+
+test('PDF records signature attribution and non-performable reason',async()=>{
+ const bytes=await createReportPdf({rows:[{...row,checks:row.checks.slice(0,1),signature:{strokes:[[[.1,.1],[.5,.7]]]},submittedAt:'2026-09-14T12:00:00Z'},{...row,id:'reason',result:'Nicht prüfbar',nonInspectionReason:'Tür verschlossen'}],loadAsset:async()=>font});
+ const task=getDocument({data:bytes,isEvalSupported:false}),pdf=await task.promise;let content='';for(let n=1;n<=pdf.numPages;n++)content+=(await (await pdf.getPage(n)).getTextContent()).items.map(i=>i.str).join(' ');
+ assert.ok(content.includes('Unterschrift'));assert.ok(content.includes('Tür verschlossen'));await task.destroy();
+});

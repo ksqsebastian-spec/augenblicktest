@@ -1,4 +1,4 @@
-import {maintainWorkspace} from './scheduled.js';
+import {maintainAllWorkspaces} from './scheduled.js';
 import {api} from './api.js';
 export default {
   async fetch(request,env) {
@@ -11,6 +11,6 @@ export default {
     return new Response(response.body,{status:response.status,headers});
   },
   async scheduled(_event,env) {
-    await maintainWorkspace(env);
+    await maintainAllWorkspaces(env);
   }
 };
