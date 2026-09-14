@@ -8,11 +8,12 @@ Der Abgleich erfolgt anhand der angemeldeten Original-App unter app.augenblick-c
 |---|---|---|
 | Dashboard / Navigation | umgesetzt | Desktop und mobile Ansicht geprüft; andere Testdaten |
 | Objekte / Gebäude | Anlegen, Bearbeiten, Übersicht und Verknüpfungen | Löschen einschließlich abhängiger Datensätze und wiederherstellbarer Papierkorb ergänzt; API-Test |
-| Geräte | Kategorien, Stammdaten, Such-, Objekt-, Gebäude- und Statusfilter | Einzelne kategoriespezifische Eingabevarianten noch nicht vollständig abgeglichen |
+| Geräte | Kategorien, Stammdaten, Such-, Objekt-, Gebäude- und Statusfilter | FLS-Felder abgeglichen; bei BST fehlen noch Typ-Auswahl und Rauchschutz-Schalter, Türart ist bisher Freitext; UUID-Scan direkt im Anlageformular fehlt |
 | FSA-Jahreswartung | 27 Prüfpunkte einschließlich 9 FSA-Zusatzpunkten | Browser: vollständige Prüfung gespeichert und Bericht gelesen |
 | Prüfungsart / Wartungsarbeiten | Auswahl und unveränderliche Dokumentation | Jahreswartung im Browser getestet |
 | Monatsprüfung | 6 Prüfpunkte | Online und offline inkl. anschließendem Sync getestet |
 | Eigene Prüfprotokolle | Felder, Prüfpunkte, Reihenfolge, Prüfungsarten, Wartung, Objektauswahl, Norm, Intervalle | Browser: Vorlage → CPR-Gerät → abgeschlossener Bericht |
+| Stammdaten während der Prüfung | vorhandene Stammdaten werden im Bericht eingefroren | Original erlaubt zusätzlich feldweise Bearbeitung und FSA-spezifische Angaben; dieser Editor fehlt noch |
 | Standardvorlagen | editierbare Listen für Kategorien | Prüfpunkte erfasst; keine fachliche Zertifizierung |
 | Labels | Name, 14 Farben, Vorschau, Bearbeiten, Archivieren, Aufgabenzuordnung | Browser-Speicherung und API-Validierung |
 | SLA-Richtlinien | Reaktions-/Lösungszeiten pro Priorität; serverseitige Fristen und Eskalationsprotokoll | API-Test inkl. einmaligem Ereignis; Hintergrundlauf alle 5 Minuten |
