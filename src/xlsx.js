@@ -1,0 +1,12 @@
+export async function readXlsx(file){
+ if(file.size>20*1024*1024)throw new Error('XLSX-Datei darf maximal 20 MB groß sein.');
+ const buffer=await file.arrayBuffer(),v=new DataView(buffer),bytes=new Uint8Array(buffer),decoder=new TextDecoder();let end=-1;
+ for(let p=bytes.length-22;p>=Math.max(0,bytes.length-65558);p--)if(v.getUint32(p,true)===0x06054b50){end=p;break;}
+ if(end<0)throw new Error('Ungültige XLSX-Datei.');
+ const count=v.getUint16(end+10,true);let p=v.getUint32(end+16,true),total=0;const entries={};
+ for(let i=0;i<count;i++){if(v.getUint32(p,true)!==0x02014b50)throw new Error('Ungültiges Archiv.');const method=v.getUint16(p+10,true),length=v.getUint32(p+20,true),unpacked=v.getUint32(p+24,true),nl=v.getUint16(p+28,true),el=v.getUint16(p+30,true),cl=v.getUint16(p+32,true),offset=v.getUint32(p+42,true),name=decoder.decode(bytes.slice(p+46,p+46+nl));p+=46+nl+el+cl;if(!/^xl\/(sharedStrings.xml|worksheets\/sheet\d+.xml)$/.test(name))continue;if(unpacked>10*1024*1024||(total+=unpacked)>20*1024*1024)throw new Error('Arbeitsblatt ist zu groß.');const start=offset+30+v.getUint16(offset+26,true)+v.getUint16(offset+28,true);const compressed=bytes.slice(start,start+length);if(method===0)entries[name]=decoder.decode(compressed);else if(method===8){const stream=new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw'));entries[name]=await new Response(stream).text();}else throw new Error('Komprimierung nicht unterstützt.');}
+ const parse=s=>new DOMParser().parseFromString(s,'application/xml'),shared=entries['xl/sharedStrings.xml']?Array.from(parse(entries['xl/sharedStrings.xml']).querySelectorAll('si')).map(si=>Array.from(si.querySelectorAll('t')).map(t=>t.textContent).join('')):[];
+ const sheet=Object.keys(entries).filter(k=>k.startsWith('xl/worksheets/')).sort()[0];if(!sheet)throw new Error('Kein Arbeitsblatt gefunden.');
+ const rows=Array.from(parse(entries[sheet]).querySelectorAll('sheetData row')).map(row=>{const values=[];for(const c of row.querySelectorAll('c')){const letters=c.getAttribute('r').match(/[A-Z]+/)[0];let column=0;for(const x of letters)column=column*26+x.charCodeAt(0)-64;const value=c.querySelector('v')?.textContent||c.querySelector('is')?.textContent||'';values[column-1]=c.getAttribute('t')==='s'?shared[Number(value)]:value;}return values;});
+ const headers=(rows.shift()||[]).map(x=>String(x).trim());return rows.filter(r=>r.some(Boolean)).map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i]||''])));
+}

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 68" width="80" height="68">
+  <!-- Augenblick-Control Logo — Icon only -->
+  <!-- Colors: Dark #0E3A6E | Blue #1565C0 | Green #059669 -->
+
+  <!-- A left half -->
+  <path d="M30 0 L4 60 L14 60 L22 38 L30 18Z" fill="#0E3A6E"/>
+  <!-- A right half -->
+  <path d="M30 0 L56 60 L46 60 L38 38 L30 18Z" fill="#1565C0"/>
+  <!-- Green checkmark -->
+  <path d="M16 40 L24 50 L42 28" fill="none" stroke="#059669" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Signal wave 1 -->
+  <path d="M48 22 C54 22 56 28 56 34" fill="none" stroke="#059669" stroke-width="1.5" stroke-linecap="round" opacity="0.55"/>
+  <!-- Signal wave 2 -->
+  <path d="M52 16 C60 16 64 24 64 34" fill="none" stroke="#059669" stroke-width="1.2" stroke-linecap="round" opacity="0.3"/>
+  <!-- Signal wave 3 -->
+  <path d="M56 10 C68 10 72 22 72 34" fill="none" stroke="#059669" stroke-width="0.9" stroke-linecap="round" opacity="0.15"/>
+</svg>

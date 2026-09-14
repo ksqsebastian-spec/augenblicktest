@@ -1,0 +1,54 @@
+# Augenblick
+
+A self-hosted German fire-safety inspection workspace, recreated from the visible Augenblick Control interface. React frontend, Cloudflare Worker API, D1 shared database and private R2 uploads. This is an independent implementation, not the original application's source or a certified replacement for professional inspection procedures.
+
+## Included
+
+- Responsive dashboard, objects, buildings, equipment and inspection history.
+- Annual/category checklists and monthly FSA inspections; defects, actions, photographs, next dates and printable reports.
+- Team accounts, administrator/team-lead/inspector roles, expiring invitation links and activity log.
+- Tasks, contractor contacts, image/PDF floor plans and equipment pins on images.
+- CSV/XLSX equipment import, CSV exports, JSON record backup and editable checklists.
+- Offline cached records and inspection drafts/completion queue with explicit synchronization and conflict detection.
+
+The server is authoritative for shared records. Each installation is one team workspace; this is not a multi-tenant service. File downloads require an authenticated session. Completed inspection evidence is immutable; administrators can archive it.
+
+## Known boundaries
+
+This release covers the core observed workflows, not every feature of the original service. Invitations are links for manual delivery; automated emails, password recovery, a subcontractor portal and SLA escalation are not implemented. SLA settings currently store configuration only. Reports use browser printing/save-as-PDF, not certified document generation. CPR checklists require administrator configuration. Review all templates and due-date rules against your operational requirements before relying on them.
+
+Offline mode caches records on the current device. Photos and plans are not guaranteed available offline, and new file uploads require connectivity. Sign out after synchronizing on shared devices; signing out clears the app cache. JSON backup contains file references rather than binary attachments. Existing production records have not been migrated from the original service.
+
+## Local development
+
+Use Node.js 24 or newer (the local adapter uses node:sqlite).
+
+```sh
+npm ci
+npm test
+npm run build
+npm start
+```
+
+Open http://127.0.0.1:8787. First administrator setup uses the local-only key `local-development-setup-only` unless SETUP_TOKEN is set. The local database and uploads live in ignored `.local/`. `npm run dev` is the Vite frontend development server; the combined production preview above is the tested full-stack route.
+
+## Cloudflare deployment
+
+`wrangler.jsonc` identifies the intended account, D1 database and private R2 bucket. For a different account, replace those resource identifiers first. With an authenticated Wrangler CLI:
+
+```sh
+npm run build
+npx wrangler d1 migrations apply augenblick --remote
+npx wrangler secret put SETUP_TOKEN
+npx wrangler deploy
+```
+
+Generate a long random SETUP_TOKEN outside source control. Open the deployed URL with `/#setup=YOUR_SETUP_TOKEN`, create the administrator with your own password, and keep that link private. Setup closes permanently after the first administrator is created. Never commit credentials or `.local/`.
+
+The API deployment helper `node scripts/package-worker.mjs` creates an ignored, single-module bundle with compressed static assets for connector-based upload. When deploying that bundle through the API, supply DB, FILES and SETUP_TOKEN bindings, enable the workers.dev route, and configure the daily `0 3 * * *` cleanup schedule separately.
+
+GitHub CI validates tests and build; it does not deploy or contain Cloudflare credentials. D1 and R2 are provisioned, but live Worker deployment status must be confirmed separately.
+
+## Validation
+
+Automated tests exercise authorization, setup, invitations, session invalidation, record relationships, optimistic concurrency, immutable inspection snapshots, synchronization idempotency, uploads and annual/monthly status rules. Browser checks covered desktop/mobile rendering, inspection creation, import and actual server-offline reload and synchronization. See [design-qa.md](design-qa.md) for scope and limitations.
