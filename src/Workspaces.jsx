@@ -2,7 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {useApp,Header,Card,Row,Button,Field,Modal} from './App';
 import {request,post} from './data';
 export function Workspaces(){
- const {user,queue,notify}=useApp(),[rows,R]=useState([]),[mode,M]=useState(''),[value,V]=useState(''),[busy,B]=useState(false),[error,E]=useState('');
+ const {user,queue,notify}=useApp(),[rows,R]=useState([]),[mode,M]=useState(new URLSearchParams(location.hash.slice(1)).has('invite')?'redeem':''),[value,V]=useState(new URLSearchParams(location.hash.slice(1)).has('invite')?location.href:''),[busy,B]=useState(false),[error,E]=useState('');
  useEffect(()=>{request('/workspaces').then(r=>R(r.workspaces)).catch(e=>E(e.message));},[]);
  async function choose(id){if(queue.length)return notify('Bitte ausstehende Prüfungen zuerst synchronisieren.');B(true);try{await request('/auth/me',{headers:{'X-Workspace':id}});sessionStorage.setItem('augenblick-workspace',id);location.hash='/dashboard';location.reload();}catch(e){E(e.message);B(false);}}
  async function submit(e){e.preventDefault();E('');B(true);try{const r=await post(mode==='create'?'/workspaces':'/workspaces/redeem',mode==='create'?{name:value}:{token:value});await choose(r.workspaceId);}catch(e){E(e.message);}finally{B(false);}}
