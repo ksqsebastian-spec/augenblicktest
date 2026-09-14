@@ -6,7 +6,7 @@ import {api} from '../backend/api.js';
 const DB=database(),files=new Map(),env={DB,SETUP_TOKEN:'test-setup-secret',FILES:{async put(id,b){files.set(id,b);},async get(id){return files.has(id)?{body:files.get(id)}:null;}}};
 let admin='',inspector='';
 async function call(path,method='GET',b,cookie=admin,extra={}){const r=await api(new Request('http://localhost/api'+path,{method,headers:{'Content-Type':'application/json','X-Augenblick':'1','Cookie':cookie,...extra},...(b?{body:JSON.stringify(b)}:{})}),env);return {status:r.status,body:await r.json(),cookie:r.headers.get('Set-Cookie')?.split(';')[0]};}
-before(async()=>{DB.sql.exec(await readFile(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));});
+before(async()=>{DB.sql.exec(await readFile(new URL('../migrations/0001_initial.sql',import.meta.url),'utf8'));DB.sql.exec(await readFile(new URL('../migrations/0002_external_access.sql',import.meta.url),'utf8'));DB.sql.exec(await readFile(new URL('../migrations/0003_email.sql',import.meta.url),'utf8'));});
 after(()=>DB.sql.close());
 test('private data rejects anonymous access',async()=>{assert.equal((await call('/records','GET',null,'')).status,401);});
 test('setup is secret gated and only runs once',async()=>{const b={email:'admin@example.test',password:'testing-only-password',name:'Test Admin',token:env.SETUP_TOKEN};assert.equal((await call('/auth/setup','POST',{...b,token:'wrong'})).status,403);const r=await call('/auth/setup','POST',b);assert.equal(r.status,200);admin=r.cookie;assert.match(admin,/augenblick_session=/);assert.equal((await call('/auth/setup','POST',{...b,email:'second@example.test'})).status,409);});
@@ -21,3 +21,73 @@ test('completed inspections cannot be rewritten; admins can archive',async()=>{c
 test('team tasks validate assignment and share state',async()=>{const users=(await call('/users')).body.users,u=users.find(u=>u.role==='inspector');const b={id:'t1',title:'Tür prüfen',status:'Offen',priority:'Hoch',dueDate:'2026-10-01',objectId:'o1',assignee:u.id};assert.equal((await call('/records/tasks','PUT',b)).status,200);assert.equal((await call('/records','GET',null,inspector)).body.records.find(r=>r.id==='t1').title,b.title);});
 test('private uploads require auth and reject executable content',async()=>{let r=await api(new Request('http://localhost/api/files',{method:'POST',headers:{'Cookie':admin,'X-Augenblick':'1','Content-Type':'text/html'},body:'<script>alert(1)</script>'}),env);assert.equal(r.status,415);r=await api(new Request('http://localhost/api/files',{method:'POST',headers:{'Cookie':admin,'X-Augenblick':'1','Content-Type':'image/png','X-Filename':'test.png'},body:new Uint8Array([137,80,78,71])}),env);assert.equal(r.status,200);const file=await r.json();assert.equal((await call('/files/'+file.id,'GET',null,'')).status,401);const loaded=await api(new Request('http://localhost'+file.url,{headers:{Cookie:inspector}}),env);assert.equal(loaded.status,200);assert.equal(loaded.headers.get('Cache-Control'),'private, no-store');});
 test('disabled users immediately lose access',async()=>{const u=(await call('/users')).body.users.find(u=>u.role==='inspector');assert.equal((await call('/users/'+u.id,'PATCH',{role:'inspector',active:0})).status,200);assert.equal((await call('/records','GET',null,inspector)).status,401);assert.equal((await call('/audit')).status,200);});
+test('labels, protocols and SLA validate and preserve authoritative deadlines',async()=>{
+ assert.equal((await call('/records/labels','PUT',{id:'label-1',name:'Dringend',color:'#ef5350'})).status,200);
+ assert.equal((await call('/records/labels','PUT',{id:'label-bad',name:'Bad',color:'javascript:bad'})).status,400);
+ assert.equal((await call('/records/settings','PUT',{id:'sla-Hoch',priority:'Hoch',active:true,reactionMinutes:30,resolutionMinutes:60})).status,200);
+ assert.equal((await call('/records/settings','PUT',{id:'sla-Mittel',priority:'Mittel',active:true,reactionMinutes:-1,resolutionMinutes:60})).status,400);
+ let r=await call('/records/tasks','PUT',{id:'sla-task',title:'SLA-Test',status:'Offen',priority:'Hoch',dueDate:'2027-01-01',labels:['label-1'],reactionDue:'2099-01-01'});
+ assert.equal(r.status,200);assert.ok(Date.parse(r.body.record.reactionDue)<Date.now()+31*60000);
+ let task=r.body.record;r=await call('/records/tasks','PUT',{...task,status:'In Bearbeitung',reactionDue:'2099-01-01'});assert.equal(r.status,200);assert.equal(r.body.record.reactionDue,task.reactionDue);assert.ok(r.body.record.startedAt);
+ const protocol={id:'custom-1',name:'Sichtprüfung',checks:['Kontrolle'],objectIds:['o1'],fields:[{key:'serial',label:'Seriennummer'}],inspectionTypes:['Erstprüfung'],maintenance:[],intervalOk:12,intervalDefect:6};
+ assert.equal((await call('/records/customProtocols','PUT',protocol)).status,200);
+ assert.equal((await call('/records/customProtocols','PUT',{...protocol,id:'custom-bad',intervalOk:0})).status,400);
+ assert.equal((await call('/files/storage')).status,200);
+});
+test('external invitations isolate records, attachments and management access',async()=>{
+ await call('/records/objects','PUT',{id:'private-object',name:'Private'});
+ await call('/records/buildings','PUT',{id:'private-building',name:'Private',objectId:'private-object'});
+ await call('/records/assets','PUT',{id:'private-asset',category:'FLS',code:'PRIVATE',location:'Private',buildingId:'private-building'});
+ const invite=await call('/invites','POST',{email:'external@example.test',role:'admin',external:true,days:7,restricted:true,objectIds:['o1'],buildingIds:[],createAssets:false});assert.equal(invite.status,200);
+ const token=new URLSearchParams(new URL(invite.body.link).hash.slice(1)).get('invite');
+ const accepted=await call('/auth/accept','POST',{email:'external@example.test',name:'External',password:'external-test-password',token});assert.equal(accepted.status,200);const c=accepted.cookie;assert.ok(accepted.body.user.access);
+ const records=(await call('/records','GET',null,c)).body.records;assert.ok(records.some(r=>r.id==='a1'));assert.ok(!records.some(r=>r.id==='private-asset'||r.id==='private-object'));
+ assert.equal((await call('/records/assets','PUT',{id:'evil',category:'FLS',code:'EVIL',location:'EG',buildingId:'b1'},c)).status,403);
+ assert.equal((await call('/records/objects','PUT',{id:'private-object',name:'Overwrite',version:1},c)).status,403);
+ assert.equal((await call('/records/settings','PUT',{id:'external-setting',name:'Overwrite'},c)).status,403);
+ assert.equal((await call('/invites','POST',{email:'escalate@example.test',role:'admin'},c)).status,403);
+ assert.equal((await call('/audit','GET',null,c)).status,403);
+ assert.equal((await call('/users','GET',null,c)).body.users.length,1);
+ const file=DB.sql.prepare('SELECT id FROM files LIMIT 1').get();assert.equal((await call('/files/'+file.id,'GET',null,c)).status,403);
+ assert.equal((await call('/contractors/'+accepted.body.user.id,'DELETE')).status,200);
+ assert.equal((await call('/records','GET',null,c)).status,401);
+ assert.equal((await call('/auth/login','POST',{email:'external@example.test',password:'external-test-password'})).status,403);
+});
+test('password changes verify old password and invalidate other sessions',async()=>{
+ const second=await call('/auth/login','POST',{email:'admin@example.test',password:'testing-only-password'});
+ assert.equal((await call('/auth/password','POST',{currentPassword:'wrong',password:'new-testing-password'})).status,403);
+ assert.equal((await call('/auth/password','POST',{currentPassword:'testing-only-password',password:'new-testing-password'})).status,200);
+ assert.equal((await call('/records','GET',null,second.cookie)).status,401);
+ assert.equal((await call('/records')).status,200);
+ assert.equal((await call('/auth/login','POST',{email:'admin@example.test',password:'testing-only-password'})).status,401);
+ assert.equal((await call('/auth/login','POST',{email:'admin@example.test',password:'new-testing-password'})).status,200);
+});
+test('scheduled SLA escalation is recorded once without losing task data',async()=>{
+ const {maintainWorkspace}=await import('../backend/scheduled.js');
+ const r=await call('/records/tasks','PUT',{id:'escalation-test',title:'Background SLA',status:'Offen',priority:'Hoch',dueDate:'2027-01-01'});assert.equal(r.status,200);
+ const at=Date.now()+61*60000;await maintainWorkspace(env,at);
+ let t=JSON.parse(DB.sql.prepare('SELECT data FROM records WHERE id=?').get('escalation-test').data);assert.equal(t.title,'Background SLA');assert.ok(t.escalatedAt);
+ await maintainWorkspace(env,at+60000);
+ assert.equal(DB.sql.prepare("SELECT COUNT(*) as n FROM audit WHERE record_id='escalation-test' AND action='SLA überschritten'").get().n,1);
+});
+test('email reminders deduplicate daily delivery and reset links are single use',async()=>{
+ const sent=[],emailEnv={...env,EMAIL_FROM:'noreply@example.test',APP_URL:'https://example.test',EMAIL:{async send(message){sent.push(message);return {messageId:'test-only'};}}};
+ const adminUser=DB.sql.prepare("SELECT id FROM users WHERE email='admin@example.test'").get();
+ await call('/records/settings','PUT',{id:'reminders',enabled:true,days:30,recipientIds:[adminUser.id]});
+ const {sendReminders}=await import('../backend/email.js');
+ await sendReminders(emailEnv,Date.parse('2027-09-13'));await sendReminders(emailEnv,Date.parse('2027-09-13T01:00:00Z'));assert.equal(sent.length,1);assert.match(sent[0].text,/BST-B16A/);
+ const invoke=async(path,b)=>api(new Request('http://localhost/api'+path,{method:'POST',headers:{'Content-Type':'application/json','X-Augenblick':'1'},body:JSON.stringify(b)}),emailEnv);
+ assert.equal((await invoke('/auth/forgot',{email:'admin@example.test'})).status,200);
+ assert.equal(sent.length,2);const token=decodeURIComponent(sent[1].text.split('#reset=')[1]);
+ assert.equal((await invoke('/auth/reset',{token,password:'reset-test-password'})).status,200);
+ assert.equal((await invoke('/auth/reset',{token,password:'reset-test-password'})).status,400);
+ assert.equal((await call('/auth/login','POST',{email:'admin@example.test',password:'reset-test-password'})).status,200);
+});
+test('trash cascades and restores a hierarchy while preserving archived evidence',async()=>{
+ admin=(await call('/auth/login','POST',{email:'admin@example.test',password:'reset-test-password'})).cookie;
+ let r=await call('/trash/o1','POST',{});assert.equal(r.status,200,JSON.stringify(r.body));assert.ok(r.body.count>=4);
+ const hidden=(await call('/records')).body.records;assert.equal(hidden.find(r=>r.id==='a1').trashId,'o1');assert.equal(hidden.find(r=>r.id==='i1').trashId,'o1');
+ assert.equal((await call('/records/inspections','PUT',{...inspection,id:'deleted-parent-test'})).status,400);
+ r=await call('/trash/o1','POST',{restore:true});assert.equal(r.status,200);
+ const restored=(await call('/records')).body.records;assert.equal(restored.find(r=>r.id==='a1').archived,false);assert.equal(restored.find(r=>r.id==='i1').archived,true);assert.equal(restored.find(r=>r.id==='i1').trashId,undefined);
+});

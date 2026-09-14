@@ -1,0 +1,2 @@
+CREATE TABLE IF NOT EXISTS invite_scopes (token TEXT PRIMARY KEY, data TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS external_access (user_id TEXT PRIMARY KEY, data TEXT NOT NULL);

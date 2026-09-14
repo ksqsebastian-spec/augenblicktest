@@ -6,6 +6,6 @@
   "assets": {"directory": "dist/client", "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": ["/api/*"]},
   "d1_databases": [{"binding":"DB","database_name":"augenblick","database_id":"432f4517-d855-44ee-a318-e35deec6f47d","migrations_dir":"migrations"}],
   "r2_buckets": [{"binding":"FILES","bucket_name":"augenblick-files"}],
-  "triggers": {"crons":["0 3 * * *"]},
+  "triggers": {"crons":["*/5 * * * *"]},
   "observability": {"enabled":true}
 }

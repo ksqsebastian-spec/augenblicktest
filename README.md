@@ -11,13 +11,13 @@ A self-hosted German fire-safety inspection workspace, recreated from the visibl
 - CSV/XLSX equipment import, CSV exports, JSON record backup and editable checklists.
 - Offline cached records and inspection drafts/completion queue with explicit synchronization and conflict detection.
 
-The server is authoritative for shared records. Each installation is one team workspace; this is not a multi-tenant service. File downloads require an authenticated session. Completed inspection evidence is immutable; administrators can archive it.
+The server is authoritative for shared records. Each installation is one team workspace with scoped external accounts; cross-company workspace switching is not implemented. File downloads require an authenticated session. Completed inspection evidence is immutable; administrators can archive it.
 
 ## Known boundaries
 
-This release covers the core observed workflows, not every feature of the original service. Invitations are links for manual delivery; automated emails, password recovery, a subcontractor portal and SLA escalation are not implemented. SLA settings currently store configuration only. Reports use browser printing/save-as-PDF, not certified document generation. CPR checklists require administrator configuration. Review all templates and due-date rules against your operational requirements before relying on them.
+This release covers the core observed workflows, not every feature of the original service. Labels, QR labels, custom protocols, scoped and expiring subcontractor access, password changes and server-side SLA escalation are implemented. Reminder, invitation and password-reset email code is tested with a mock sender; production sending remains disabled until EMAIL, EMAIL_FROM and APP_URL are configured with a verified sender domain. Reports use browser printing/save-as-PDF, not certified document generation. CPR equipment can use administrator-created custom protocols. Review all templates and due-date rules against your operational requirements before relying on them.
 
-Offline mode caches records on the current device. Photos and plans are not guaranteed available offline, and new file uploads require connectivity. Sign out after synchronizing on shared devices; signing out clears the app cache. JSON backup contains file references rather than binary attachments. Existing production records have not been migrated from the original service.
+Offline mode caches records on the current device. Photos and plans are not guaranteed available offline, and inspection photos can be captured offline and uploaded on synchronization. Sign out after synchronizing on shared devices; signing out clears the app cache. JSON backup contains file references rather than binary attachments. Existing production records have not been migrated from the original service.
 
 ## Local development
 
@@ -45,10 +45,14 @@ npx wrangler deploy
 
 Generate a long random SETUP_TOKEN outside source control. Open the deployed URL with `/#setup=YOUR_SETUP_TOKEN`, create the administrator with your own password, and keep that link private. Setup closes permanently after the first administrator is created. Never commit credentials or `.local/`.
 
-The API deployment helper `node scripts/package-worker.mjs` creates an ignored, single-module bundle with compressed static assets for connector-based upload. When deploying that bundle through the API, supply DB, FILES and SETUP_TOKEN bindings, enable the workers.dev route, and configure the daily `0 3 * * *` cleanup schedule separately.
+The API deployment helper `node scripts/package-worker.mjs` creates an ignored, single-module bundle with compressed static assets for connector-based upload. When deploying that bundle through the API, supply DB, FILES and SETUP_TOKEN bindings, enable the workers.dev route, and configure the five-minute `*/5 * * * *` maintenance schedule separately.
 
-GitHub CI validates tests and build; it does not deploy or contain Cloudflare credentials. Live deployment: https://augenblick.ksqsebastian.workers.dev . D1, private R2, the setup secret and daily cleanup schedule are configured. The owner must complete first-administrator setup using the private setup link.
+GitHub CI validates tests and build; it does not deploy or contain Cloudflare credentials. Live deployment: https://augenblick.ksqsebastian.workers.dev . D1, private R2, the setup secret and five-minute maintenance schedule are configured. The owner must complete first-administrator setup using the private setup link.
 
 ## Validation
 
 Automated tests exercise authorization, setup, invitations, session invalidation, record relationships, optimistic concurrency, immutable inspection snapshots, synchronization idempotency, uploads and annual/monthly status rules. Browser checks covered desktop/mobile rendering, inspection creation, import and actual server-offline reload and synchronization. See [design-qa.md](design-qa.md) for scope and limitations.
+
+## Parity audit
+
+See [parity-audit.md](parity-audit.md) for the detailed German feature matrix and unresolved gaps. Full feature and pixel parity is not claimed. For native Cloudflare email, use a `send_email` binding named EMAIL, a verified EMAIL_FROM address and APP_URL set to the public origin. Do not enable reminders before verifying delivery. Email builder reference: https://developers.cloudflare.com/email-service/api/send-emails/workers-api/ .

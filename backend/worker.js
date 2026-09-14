@@ -1,3 +1,4 @@
+import {maintainWorkspace} from './scheduled.js';
 import {api} from './api.js';
 export default {
   async fetch(request,env) {
@@ -10,6 +11,6 @@ export default {
     return new Response(response.body,{status:response.status,headers});
   },
   async scheduled(_event,env) {
-    await env.DB.batch([env.DB.prepare('DELETE FROM sessions WHERE expires<?').bind(Date.now()),env.DB.prepare('DELETE FROM attempts WHERE expires<?').bind(Date.now()),env.DB.prepare('DELETE FROM invites WHERE expires<?').bind(Date.now())]);
+    await maintainWorkspace(env);
   }
 };
