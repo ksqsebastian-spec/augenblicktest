@@ -1,0 +1,9 @@
+import React,{useState,useEffect} from 'react';
+import {useApp,Header,Card,Button,Badge} from './App';
+import {cached,privateFile,buildingAttachments,date} from './data';
+export function Offline(){
+ const {list,records,user,queue,sync,notify,go}=useApp(),[ready,S]=useState({}),[busy,B]=useState(''),[progress,P]=useState('');
+ useEffect(()=>{cached('offline-buildings:'+user.id).then(v=>S(v||{}));},[user.id]);
+ async function prepare(building){B(building.id);try{const files=buildingAttachments(building.id,records);P('Anwendung vorbereiten…');const [pdf]=await Promise.all([import('./PdfPlan'),import('./pdf'),import('@zxing/browser')]);await pdf.warmPdfWorker();for(let i=0;i<files.length;i++){P(`Datei ${i+1} von ${files.length}`);await privateFile(files[i].url,{force:true});}const next={...ready,[building.id]:{at:new Date().toISOString(),files:files.length}};await cached('offline-buildings:'+user.id,next);S(next);notify(building.name+' inklusive '+files.length+' Dateien offline gespeichert.');}catch(e){notify(e.message+' Die Vorbereitung ist noch nicht vollständig.');}finally{B('');P('');}}
+ return <><Header title="Offline-Daten" back="settings"/><div className="content form-width"><Card><h3>{list('buildings').length} Gebäude mit gespeicherten Stammdaten</h3><p>Bereiten Sie die benötigten Gebäude online vor. Dabei werden auch Grundrisse, Prüffotos und PDF-Funktionen auf diesem Gerät gespeichert.</p><Badge>{queue.length} ausstehende Prüfungen</Badge><Button onClick={sync}>Jetzt synchronisieren</Button></Card>{list('buildings').map(b=><Card key={b.id}><h3>{b.name}</h3><p>{ready[b.id]?`${ready[b.id].files} Dateien gespeichert · ${date(ready[b.id].at)}`:'Dateien noch nicht offline vorbereitet'}</p><Button disabled={!!busy} onClick={()=>prepare(b)}>{busy===b.id?progress:ready[b.id]?'Offline-Daten aktualisieren':'Offline vorbereiten'}</Button><Button onClick={()=>go('buildings/'+b.id)}>Gebäude öffnen</Button></Card>)}</div></>;
+}

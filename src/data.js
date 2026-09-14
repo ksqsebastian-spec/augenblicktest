@@ -19,3 +19,16 @@ export function parseCsv(text){const lines=[];let row=[],s='',q=false;const sep=
 export async function inspectionPhoto(file){if(!['image/jpeg','image/png','image/webp'].includes(file.type))throw new Error('Bitte JPG, PNG oder WebP auswählen.');if(file.size>10485760)throw new Error('Maximal 10 MB pro Foto.');try{return await request('/files',{method:'POST',headers:{'Content-Type':file.type,'X-Filename':encodeURIComponent(file.name)},body:file});}catch(e){if(e.status)throw e;const id=crypto.randomUUID();await cached('photo:'+id,file);return {id,name:file.name,mime:file.type,pending:true};}}
 export async function uploadPendingPhotos(record){for(let i=0;i<(record.photos||[]).length;i++){const p=record.photos[i];if(!p.pending)continue;let uploaded=await cached('uploaded-photo:'+p.id);if(!uploaded){const file=await cached('photo:'+p.id);if(!file)throw new Error('Offline-Foto fehlt auf diesem Gerät. Bitte erneut hinzufügen.');uploaded=await request('/files',{method:'POST',headers:{'Content-Type':p.mime,'X-Filename':encodeURIComponent(p.name)},body:file});await cached('uploaded-photo:'+p.id,uploaded);}record.photos[i]={...uploaded,localId:p.id};}return record;}
 export async function clearUploadedPhotos(record){for(const p of record.photos||[])if(p.localId){await cached('photo:'+p.localId,null);await cached('uploaded-photo:'+p.localId,null);}}
+export async function privateFile(url,{force=false}={}){
+ if(!/^\/api\/files\/[\w-]+$/.test(url))throw new Error('Ungültiger Dateiverweis.');
+ const user=await cached('user');if(!user)throw new Error('Bitte zuerst anmelden.');
+ const key='file:'+user.id+':'+url.split('/').pop();
+ try{const r=await fetch(url,{credentials:'same-origin'});if(!r.ok)throw Object.assign(new Error('Datei nicht verfügbar ('+r.status+').'),{status:r.status});const blob=await r.blob();await cached(key,blob);return blob;}
+ catch(e){if(force||e.status)throw e;const blob=await cached(key);if(blob)return blob;throw new Error('Diese Datei wurde noch nicht für offline gespeichert.');}
+}
+export function buildingAttachments(buildingId,records){
+ const assets=new Set(records.filter(r=>r.kind==='assets'&&r.buildingId===buildingId).map(r=>r.id));const files=new Map();
+ function scan(value){if(!value||typeof value!=='object')return;if(value.id&&value.url==='/api/files/'+value.id)files.set(value.id,value);for(const child of Object.values(value))if(child&&typeof child==='object')scan(child);}
+ for(const r of records)if(r.buildingId===buildingId||assets.has(r.assetId)||r.kind==='settings'&&r.id==='company')scan(r);
+ return [...files.values()];
+}

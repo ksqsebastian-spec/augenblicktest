@@ -14,3 +14,5 @@ h1,.welcome-title strong,.row-content strong{font-weight:400}.quick-actions{grid
 
 .sla-page{line-height:1.4}.sla-page .card h3{line-height:20px}.sla-page .card .button{min-height:36px;padding-top:7px;padding-bottom:7px}
 .inspection-specs{display:grid;gap:8px}.inspection-spec{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,2fr) 36px;gap:8px;align-items:center;min-height:40px}.inspection-spec>span:first-child{font-size:12px;color:var(--muted,#637083);overflow-wrap:anywhere}.inspection-spec-editor{grid-column:2/4;display:flex;align-items:center;gap:4px}.inspection-spec-editor .field{flex:1;margin:0;min-width:0}.inspection-spec-editor .field>span{display:none}.inspection-spec-editor input,.inspection-spec-editor select{min-width:0}.inspection-spec-editor .segments{flex:1}
+
+.toast{pointer-events:none}.toast button{pointer-events:auto}

@@ -1,9 +1,10 @@
+import {privateFile} from './data.js';
 import {jsPDF} from 'jspdf';
 import {reportFilename} from './advanced-data.js';
 import {categories} from './templates.js';
 const date=value=>value?new Date(value).toLocaleDateString('de-DE'):'—';
 const encode=bytes=>{let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);};
-async function load(url){const r=await fetch(url,{credentials:'same-origin'});if(!r.ok)throw new Error('PDF-Anhang konnte nicht geladen werden. Bitte Verbindung prüfen.');return new Uint8Array(await r.arrayBuffer());}
+async function load(url){if(url.startsWith('/api/files/'))return new Uint8Array(await (await privateFile(url)).arrayBuffer());const r=await fetch(url,{credentials:'same-origin'});if(!r.ok)throw new Error('PDF-Anhang konnte nicht geladen werden. Bitte Verbindung prüfen.');return new Uint8Array(await r.arrayBuffer());}
 export async function createReportPdf({rows,title='Prüfprotokoll',loadAsset=load}) {
  const doc=new jsPDF({unit:'mm',format:'a4',compress:true});
  doc.addFileToVFS('Inter.ttf',encode(await loadAsset('/assets/inter.ttf')));doc.addFont('Inter.ttf','Inter','normal');doc.setFont('Inter');doc.setFontSize(10);

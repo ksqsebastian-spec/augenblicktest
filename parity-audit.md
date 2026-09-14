@@ -8,7 +8,7 @@ Der Abgleich erfolgt anhand der angemeldeten Original-App unter app.augenblick-c
 |---|---|---|
 | Dashboard / Navigation | umgesetzt | Desktop und mobile Ansicht geprüft; andere Testdaten |
 | Objekte / Gebäude | Anlegen, Bearbeiten, Übersicht und Verknüpfungen | Löschen einschließlich abhängiger Datensätze und wiederherstellbarer Papierkorb ergänzt; API-Test |
-| Geräte | Kategorien, Stammdaten, Such-, Objekt-, Gebäude- und Statusfilter | FLS/BST/BSK/RWM/BSB/CPR-Anlageformulare geprüft; Typen, Rauchschutz, Türart und zusätzliche Klappen-/Melderfelder ergänzt. UUID-Übernahme im Browser getestet; physische Kamera geräteabhängig noch zu prüfen. |
+| Geräte | Kategorien, Stammdaten, Such-, Objekt-, Gebäude- und Statusfilter | FLS/BST/BSK/RWM/BSB/CPR-Anlageformulare geprüft; Typen, Rauchschutz, Türart und zusätzliche Klappen-/Melderfelder ergänzt. UUID-Übernahme und echte QR-Erkennung aus einer Bilddatei im Browser getestet; Kamera geräteabhängig noch zu prüfen. |
 | FSA-Jahreswartung | 27 Prüfpunkte einschließlich 9 FSA-Zusatzpunkten | Browser: vollständige Prüfung gespeichert und Bericht gelesen |
 | Prüfungsart / Wartungsarbeiten | Auswahl und unveränderliche Dokumentation | Jahreswartung im Browser getestet |
 | Monatsprüfung | 6 Prüfpunkte | Online und offline inkl. anschließendem Sync getestet |
@@ -27,13 +27,13 @@ Der Abgleich erfolgt anhand der angemeldeten Original-App unter app.augenblick-c
 | Berichte / Archiv | 5 Berichtskategorien, Filter, Druckansicht, CSV, Archiv und Wiederherstellung | Native PDF-Erstellung ergänzt; 120 Prüfpunkte, Umlaute und Seitenzahlen automatisiert geprüft. Exaktes Original-Layout offen. PDF-Vorschau im eingebauten Browser durch dessen Sicherheitssperre nicht prüfbar. |
 | Grundrisse | private Bild-/PDF-Dateien, Name/Ebene, Zoom, seitenbezogene Pins | Browser: PDF auf Seite 2 markiert, nach Reload erhalten. API: Koordinaten, Gebäudezuordnung und Dateifreigabe geprüft. Original-Gesten bei vorhandenem Plan mangels Referenz offen. |
 | Import | CSV/XLSX, Vorschau, Wiederaufnahme nach Fehler | echter XLSX-Import im Browser |
-| Offline | Stammdaten, Entwürfe, Prüfungswarteschlange, manueller Sync | echter Serverausfall getestet; Offline-Fotoaufnahme, Neuladen und anschließender Upload im Browser getestet |
+| Offline | Stammdaten, Entwürfe, Prüfungswarteschlange, manueller Sync, gebäudeweise Datei-Vorbereitung | echter Serverausfall getestet; Offline-Fotoaufnahme, Neuladen und anschließender Upload getestet; vorbereiteter PDF-Grundriss mit Pin nach Offline-Reload sichtbar; PDF aus gespeichertem Foto ohne Server erzeugt |
 | Erinnerungen | Servercode, Empfängerwahl, Vorlauf, tägliche Zusammenfassung | Versand mit Mock getestet; Absenderdomain noch nicht eingerichtet; verbundenes Cloudflare-Konto enthält keine Domain |
 | Einladungs-E-Mails | Versandcode vorhanden, manueller Link bleibt verfügbar | Absenderdomain noch nicht eingerichtet; verbundenes Cloudflare-Konto enthält keine Domain |
 | Passwort vergessen | 30-Minuten-Link, einmalige Nutzung, Sitzungswiderruf | Mock-Versand und API-Tests; live vom Absender abhängig |
 | Original-Verträge / Abo | nicht übernommen | Verträge, Zahlungen und Abonnement des fremden Anbieters gehören nicht zu dieser eigenen Installation |
 | Unterschriften / fertige Original-PDFs | noch nicht bestätigt | Im Originalkonto sind keine abgeschlossenen Protokolle als Referenz vorhanden |
-| Bestandsdatenübernahme | noch nicht durchgeführt | Nachbau enthält keine aus dem Original migrierten Produktionsdaten |
+| Bestandsdatenübernahme | sichtbarer Originalbestand übernommen | Objekt Test, Flügel A, BST-B16A einschließlich Hersteller/Modell/Standort/UUID sowie Firmenname Seehafer Elemente in Cloudflare gespeichert und nach Reload geprüft. Original enthält keine abgeschlossenen Prüfungen und keine Dateien. |
 
 ## Wichtigste noch offene Schritte
 
@@ -45,3 +45,5 @@ Der Abgleich erfolgt anhand der angemeldeten Original-App unter app.augenblick-c
 ## Dritter Durchgang
 
 32 Tests bestanden. PDF-, Grundriss- und Inline-Stammdatenfunktionen ergänzt; externe Dateifreigaben gegen Verweise in frei editierbaren Notizen abgesichert. Originaldaten bleiben während der Erfassung unverändert.
+
+Weitere Prüfung: QR-Bildscan öffnet das richtige Gerät. Erfolgsnachrichten verschwinden automatisch und fangen keine Klicks auf darunterliegende Bedienelemente ab. 34 automatisierte Tests bestanden. Vollständiger Firmenwechsel bleibt offen; es gibt noch keinen zugänglichen zweiten Original-Arbeitsbereich als Referenz.

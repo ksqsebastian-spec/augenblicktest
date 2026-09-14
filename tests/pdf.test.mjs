@@ -17,3 +17,10 @@ test('PDF export reports missing photo data instead of omitting evidence',async(
  await assert.rejects(createReportPdf({rows:[{...row,photos:[{pending:true}]}],loadAsset:async()=>font}),/synchronisieren/);
  await assert.rejects(createReportPdf({rows:[{...row,photos:[{url:'/api/files/missing'}]}],loadAsset:async url=>{if(url.includes('missing'))throw new Error('Anhang fehlt');return font;}}),/Anhang fehlt/);
 });
+
+test('native PDF embeds actual image bytes with a caption',async()=>{
+ const {default:QRCode}=await import('qrcode');const photo=await QRCode.toBuffer('Testfoto');
+ const bytes=await createReportPdf({rows:[{...row,checks:row.checks.slice(0,2),photos:[{url:'/api/files/photo',name:'Fotodokumentation Test'}]}],loadAsset:async url=>url.includes('/api/files/')?photo:font});
+ const task=getDocument({data:bytes,isEvalSupported:false});const pdf=await task.promise;let found=false;
+ const {OPS}=await import('pdfjs-dist/legacy/build/pdf.mjs');for(let i=1;i<=pdf.numPages;i++){const page=await pdf.getPage(i),ops=await page.getOperatorList();if(ops.fnArray.includes(OPS.paintImageXObject))found=true;}assert.ok(found);await task.destroy();
+});
